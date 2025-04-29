@@ -12,7 +12,7 @@
         .preview-item { border: 1px solid #ccc; padding: 10px; }
         img { max-width: 200%; display: block; }
         a { display: block; margin: 10px 0; text-decoration: none; color: #2196F3; }
-        #thumbnail1, #thumbnail2 { width: 100px; height: auto; margin: 10px 0; }
+        #thumbnail1, #thumbnail2, #thumbnail3 { width: 100px; height: auto; margin: 10px 0; }
         
         /* 图片上传区域布局 */
         .image-upload-group {
@@ -233,9 +233,15 @@
             </div>
             
             <div class="input-group">
-                <label>选择第二张图片：</label>
+                <label>第二张图片（可选）：</label>
                 <input type="file" id="imageInput2" accept="image/*" disabled>
                 <img id="thumbnail2" src="" alt="缩略图2" style="display:none;">
+            </div>
+			
+			<div class="input-group">
+                <label>第三张图片（可选）：</label>
+                <input type="file" id="imageInput3" accept="image/*" disabled>
+                <img id="thumbnail3" src="" alt="缩略图3" style="display:none;">
             </div>
         </div>
 
@@ -243,11 +249,11 @@
             <label>遮挡条密度：</label><br />
             <input type="range" id="densitySlider" class="slider" min="1" max="5" value="1" disabled>
             <div class="slider-labels">
-                <span>20条</span>
+                <span>18条</span>
                 <span>30条</span>
-                <span>40条</span>
-                <span>50条</span>
-                <span>100条</span>
+                <span>42条</span>
+                <span>54条</span>
+                <span>72条</span>
             </div>
         </div>
 
@@ -297,8 +303,10 @@
         // 变量声明
         let firstImage = null;
         let secondImage = null;
+		let thirdImage = null;
+		let totalImage = 0;
         let isPreviewing = false;
-        const densityMap = {1: 20, 2: 30, 3: 40, 4: 50, 5: 100};
+        const densityMap = {1: 18, 2: 30, 3: 42, 4: 54, 5: 72};
 		let isAutoPlaying = false;
 		let animationId = null;
 		let currentStripWidth = 0;
@@ -331,25 +339,35 @@
 
         // 图片上传处理
         document.getElementById('imageInput1').addEventListener('change', function(e) {
-            handleImageUpload(e, 'thumbnail1', true);
+            handleImageUpload(e, 'thumbnail1', 1);
             document.getElementById('imageInput2').disabled = false;
+			document.getElementById('imageInput3').disabled = false;
         });
 
         document.getElementById('imageInput2').addEventListener('change', function(e) {
-            handleImageUpload(e, 'thumbnail2', false);
+            handleImageUpload(e, 'thumbnail2', 2);
+        });
+		
+		document.getElementById('imageInput3').addEventListener('change', function(e) {
+            handleImageUpload(e, 'thumbnail3', 3);
         });
 
         // 图片处理函数
-		async function handleImageUpload(event, thumbnailId, isFirstImage) {
+		async function handleImageUpload(event, thumbnailId, ImageCount) {
 			const file = event.target.files[0];
 			if (!file) return;
-
+			
+			const currentPagePath = window.location.href;
+			if (!document.getElementById(thumbnailId).hasAttribute('src') || document.getElementById(thumbnailId).src === currentPagePath) {
+			   totalImage++;
+			}
+			
 			const img = await loadImage(file);
 			const thumbnail = document.getElementById(thumbnailId);
 			thumbnail.src = img.src;
 			thumbnail.style.display = 'block';
 
-			if (isFirstImage) {
+			if (ImageCount==1) {
 				// 如果图片宽度小于600px，按比例放大
 				if (img.width < 600) {
 					const scale = 800 / img.width;
@@ -384,8 +402,10 @@
 					document.getElementById('previewBtn').style.display = 'none';
 					showAlert('图片宽度必须大于200像素');
 				}
-			} else {
+			} else if(ImageCount==2){
 				secondImage = img;
+			} else {
+				thirdImage = img;
 			}
 		}
 
@@ -403,8 +423,12 @@
             ctx.fillStyle = 'black';
             const numStrips = Math.ceil(canvas.width / stripWidth);
             
+			let jiange = 2;
+			if (totalImage == 3){
+				jiange = 3;
+			}
             for (let i = 0; i < numStrips; i++) {
-                if (i % 2 === 0) continue;
+                if (i % jiange === 0) continue;
                 const x = i * stripWidth;
                 ctx.fillRect(
                     x,
@@ -432,7 +456,7 @@
         }
 
         // 图片合并函数
-        function combineImages(image1, image2) {
+        function combineImages(image1, image2, image3) {
 			console.log(image1.width);
             const canvas = document.createElement('canvas');
             canvas.width = image1.width;
@@ -445,6 +469,11 @@
             // 如果有第二张图片，叠加绘制
             if (image2) {
                 ctx.drawImage(image2, 0, 0);
+            }
+			
+			// 如果有第三张图片，叠加绘制
+            if (image3) {
+                ctx.drawImage(image3, 0, 0);
             }
             
             return canvas;
@@ -461,15 +490,21 @@
             const stripWidth = Math.floor(firstImage.width / stripCount);
 			currentStripWidth = stripWidth; // 新增这行
 
-            const processedImage1 = createProcessedImage(firstImage, stripWidth, true);
+            const processedImage1 = createProcessedImage(firstImage, stripWidth, 1);
             
             let processedImage2 = null;
             if (secondImage) {
                 const resizedImage2 = resizeImage(secondImage, firstImage.width, firstImage.height);
-                processedImage2 = createProcessedImage(resizedImage2, stripWidth, false);
+                processedImage2 = createProcessedImage(resizedImage2, stripWidth, 2);
+            }
+			
+			let processedImage3 = null;
+            if (thirdImage) {
+                const resizedImage3 = resizeImage(thirdImage, firstImage.width, firstImage.height);
+                processedImage3 = createProcessedImage(resizedImage3, stripWidth, 3);
             }
 
-            const combinedImage = combineImages(processedImage1, processedImage2);
+            const combinedImage = combineImages(processedImage1, processedImage2, processedImage3);
             const maskImage = createMaskImage(firstImage.width, firstImage.height, stripWidth);
 			  
             showResults(combinedImage, maskImage);
@@ -584,7 +619,7 @@
         }
 		
 		 // 图片处理函数
-        function createProcessedImage(img, stripWidth, isFirstImage) {
+        function createProcessedImage(img, stripWidth, ImageCount) {
             const canvas = document.createElement('canvas');
             canvas.width = img.width;
             canvas.height = img.height;
@@ -594,10 +629,17 @@
             
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
-            
+			
+            let jiange = 2;
+			let beishu = 1;
+			if (totalImage == 3){
+				jiange = 3;
+				beishu = 2;
+			}
+			
             for (let x = 0; x < canvas.width; x++) {
                 const stripIndex = Math.floor(x / stripWidth);
-                if ((isFirstImage && stripIndex % 2 === 0) || (!isFirstImage && stripIndex % 2 !== 0)) {
+                if ((ImageCount == 1 && stripIndex % jiange != 0) || (ImageCount == 2 && stripIndex % jiange != 1) || (ImageCount == 3 && stripIndex % jiange != 2)) {
                     for (let y = 0; y < canvas.height; y++) {
                         const idx = (y * canvas.width + x) * 4;
                         data[idx + 3] = 0; // 设置alpha通道为0
